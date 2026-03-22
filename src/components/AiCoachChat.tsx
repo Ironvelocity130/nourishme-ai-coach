@@ -136,6 +136,7 @@ const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
       });
     };
 
+    try {
       const profile = getStoredProfile();
       const contextMsg: Message | null = profile
         ? {
