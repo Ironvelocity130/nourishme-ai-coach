@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { getStoredProfile } from "@/pages/Profile";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -136,8 +137,20 @@ const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
     };
 
     try {
+      const profile = getStoredProfile();
+      const contextMsg: Message | null = profile
+        ? {
+            role: "user" as const,
+            content: `[CONTEXT — do not repeat this back, just use it to personalize advice]\nName: ${profile.name}, Age: ${profile.age}, Weight: ${profile.weightLbs} lbs, Height: ${profile.heightFt}'${profile.heightIn}", Goal: ${profile.goal} weight, Daily calorie target: ${profile.dailyCalories ?? "not set"} cal`,
+          }
+        : null;
+
+      const messagesWithContext = contextMsg
+        ? [contextMsg, ...updatedMessages]
+        : updatedMessages;
+
       await streamChat({
-        messages: updatedMessages,
+        messages: messagesWithContext,
         onDelta: (chunk) => upsertAssistant(chunk),
         onDone: () => setLoading(false),
         onError: (msg) => {

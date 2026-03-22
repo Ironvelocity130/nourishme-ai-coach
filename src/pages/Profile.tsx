@@ -1,15 +1,35 @@
-import { useState } from "react";
-import { Target, Activity, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Target, Activity, Save, Check } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { toast } from "sonner";
+
+export type UserProfile = {
+  name: string;
+  age: number;
+  weightLbs: number;
+  heightFt: number;
+  heightIn: number;
+  goal: "lose" | "maintain" | "gain";
+  dailyCalories?: number;
+};
+
+export const getStoredProfile = (): UserProfile | null => {
+  try {
+    const raw = localStorage.getItem("nourishme-profile");
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
 
 const Profile = () => {
-  const [profile, setProfile] = useState({
-    name: "Alex",
-    age: 28,
-    weightLbs: 159,
-    heightFt: 5,
-    heightIn: 9,
-    goal: "maintain" as "lose" | "maintain" | "gain",
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    return getStoredProfile() || {
+      name: "Alex",
+      age: 28,
+      weightLbs: 159,
+      heightFt: 5,
+      heightIn: 9,
+      goal: "maintain",
+    };
   });
 
   // Convert to metric for BMR calculation
@@ -131,7 +151,14 @@ const Profile = () => {
           <p className="text-xs text-muted-foreground mt-1">calories / day (based on moderate activity)</p>
         </div>
 
-        <button className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm animate-fade-up" style={{ animationDelay: "320ms" }}>
+        <button
+          onClick={() => {
+            localStorage.setItem("nourishme-profile", JSON.stringify({ ...profile, dailyCalories }));
+            toast.success("Profile saved! Your AI coach will use these details.");
+          }}
+          className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm animate-fade-up"
+          style={{ animationDelay: "320ms" }}
+        >
           <Save className="w-4 h-4" /> Save Profile
         </button>
       </div>
