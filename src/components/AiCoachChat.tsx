@@ -1,15 +1,106 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
 
 const initialMessages: Message[] = [
   {
     role: "assistant",
     content:
-      "Hey there! 👋 I'm your NourishMe coach. I noticed you've been under your calorie goal 3 days in a row — want some higher-calorie healthy meal ideas? Or ask me anything about your diet!",
+      "Hey there! 👋 I'm your NourishMe coach. Ask me anything about your diet — meal ideas, nutrition tips, or how to hit your goals!",
   },
 ];
+
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: Message[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+  onError: (msg: string) => void;
+}) {
+  const resp = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    onError(body.error || "Something went wrong");
+    return;
+  }
+
+  if (!resp.body) {
+    onError("No response body");
+    return;
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let streamDone = false;
+
+  while (!streamDone) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (line.startsWith(":") || line.trim() === "") continue;
+      if (!line.startsWith("data: ")) continue;
+
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === "[DONE]") {
+        streamDone = true;
+        break;
+      }
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch {
+        buffer = line + "\n" + buffer;
+        break;
+      }
+    }
+  }
+
+  // Flush remaining
+  if (buffer.trim()) {
+    for (let raw of buffer.split("\n")) {
+      if (!raw) continue;
+      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+      if (raw.startsWith(":") || raw.trim() === "") continue;
+      if (!raw.startsWith("data: ")) continue;
+      const jsonStr = raw.slice(6).trim();
+      if (jsonStr === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch { /* ignore */ }
+    }
+  }
+
+  onDone();
+}
 
 const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -21,26 +112,44 @@ const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const send = () => {
-    if (!input.trim()) return;
+  const send = async () => {
+    if (!input.trim() || loading) return;
     const userMsg: Message = { role: "user", content: input.trim() };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setLoading(true);
 
-    // Mock AI response
-    setTimeout(() => {
-      const responses = [
-        "Based on your logs today, you still have about 400 calories to go. How about a bowl of Greek yogurt with granola and berries? That would also help with your protein goal! 🥣",
-        "Great question! Post-lunch fatigue is often caused by high-glycemic carbs. Try swapping white rice for quinoa or adding more leafy greens to stay energized. 🥗",
-        "Looking at your week, your protein intake is averaging 62g/day — a bit under your 90g target. Adding a handful of almonds or an egg to breakfast could help! 🥚",
-      ];
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: responses[Math.floor(Math.random() * responses.length)] },
-      ]);
+    let assistantSoFar = "";
+
+    const upsertAssistant = (chunk: string) => {
+      assistantSoFar += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && prev.length > updatedMessages.length) {
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, content: assistantSoFar } : m
+          );
+        }
+        return [...prev.slice(0, updatedMessages.length), { role: "assistant", content: assistantSoFar }];
+      });
+    };
+
+    try {
+      await streamChat({
+        messages: updatedMessages,
+        onDelta: (chunk) => upsertAssistant(chunk),
+        onDone: () => setLoading(false),
+        onError: (msg) => {
+          toast.error(msg);
+          setLoading(false);
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to reach AI coach");
       setLoading(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -68,11 +177,17 @@ const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
                     : "bg-secondary text-secondary-foreground rounded-bl-md"
                 }`}
               >
-                {msg.content}
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none [&>p]:m-0 [&>ul]:mt-1 [&>ul]:mb-0">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}
-          {loading && (
+          {loading && messages[messages.length - 1]?.role !== "assistant" && (
             <div className="flex justify-start">
               <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
                 <div className="flex gap-1">
@@ -94,10 +209,11 @@ const AiCoachChat = ({ onClose }: { onClose: () => void }) => {
               onKeyDown={(e) => e.key === "Enter" && send()}
               placeholder="Ask your coach anything..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+              disabled={loading}
             />
             <button
               onClick={send}
-              disabled={!input.trim()}
+              disabled={!input.trim() || loading}
               className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center transition-opacity disabled:opacity-30 active:scale-95"
             >
               <Send className="w-4 h-4" />
