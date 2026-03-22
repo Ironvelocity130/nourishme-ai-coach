@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { getStoredProfile } from "@/pages/Profile";
 
 type Message = { role: "user" | "assistant"; content: string };
 
