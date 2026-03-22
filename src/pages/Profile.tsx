@@ -151,7 +151,14 @@ const Profile = () => {
           <p className="text-xs text-muted-foreground mt-1">calories / day (based on moderate activity)</p>
         </div>
 
-        <button className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm animate-fade-up" style={{ animationDelay: "320ms" }}>
+        <button
+          onClick={() => {
+            localStorage.setItem("nourishme-profile", JSON.stringify({ ...profile, dailyCalories }));
+            toast.success("Profile saved! Your AI coach will use these details.");
+          }}
+          className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm animate-fade-up"
+          style={{ animationDelay: "320ms" }}
+        >
           <Save className="w-4 h-4" /> Save Profile
         </button>
       </div>
