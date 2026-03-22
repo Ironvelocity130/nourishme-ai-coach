@@ -6,17 +6,22 @@ const Profile = () => {
   const [profile, setProfile] = useState({
     name: "Alex",
     age: 28,
-    weight: 72,
-    height: 175,
+    weightLbs: 159,
+    heightFt: 5,
+    heightIn: 9,
     goal: "maintain" as "lose" | "maintain" | "gain",
   });
 
+  // Convert to metric for BMR calculation
+  const weightKg = profile.weightLbs * 0.453592;
+  const heightCm = profile.heightFt * 30.48 + profile.heightIn * 2.54;
+
   const bmr = Math.round(
     profile.goal === "lose"
-      ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161 - 300
+      ? 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161 - 300
       : profile.goal === "gain"
-      ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161 + 300
-      : 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161
+      ? 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161 + 300
+      : 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161
   );
 
   const dailyCalories = Math.round(bmr * 1.55);
