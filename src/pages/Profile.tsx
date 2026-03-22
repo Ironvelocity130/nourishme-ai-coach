@@ -6,17 +6,22 @@ const Profile = () => {
   const [profile, setProfile] = useState({
     name: "Alex",
     age: 28,
-    weight: 72,
-    height: 175,
+    weightLbs: 159,
+    heightFt: 5,
+    heightIn: 9,
     goal: "maintain" as "lose" | "maintain" | "gain",
   });
 
+  // Convert to metric for BMR calculation
+  const weightKg = profile.weightLbs * 0.453592;
+  const heightCm = profile.heightFt * 30.48 + profile.heightIn * 2.54;
+
   const bmr = Math.round(
     profile.goal === "lose"
-      ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161 - 300
+      ? 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161 - 300
       : profile.goal === "gain"
-      ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161 + 300
-      : 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161
+      ? 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161 + 300
+      : 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161
   );
 
   const dailyCalories = Math.round(bmr * 1.55);
@@ -48,25 +53,50 @@ const Profile = () => {
             <Activity className="w-4 h-4 text-primary" />
             <span className="text-sm font-semibold">Body Stats</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Age", key: "age" as const, unit: "yrs" },
-              { label: "Weight", key: "weight" as const, unit: "kg" },
-              { label: "Height", key: "height" as const, unit: "cm" },
-            ].map(({ label, key, unit }) => (
-              <div key={key}>
-                <label className="text-[11px] text-muted-foreground">{label}</label>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <input
-                    type="number"
-                    value={profile[key]}
-                    onChange={(e) => setProfile({ ...profile, [key]: Number(e.target.value) })}
-                    className="w-full bg-secondary/60 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 tabular-nums"
-                  />
-                  <span className="text-[11px] text-muted-foreground shrink-0">{unit}</span>
-                </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-muted-foreground">Age</label>
+              <div className="flex items-baseline gap-1 mt-1">
+                <input
+                  type="number"
+                  value={profile.age}
+                  onChange={(e) => setProfile({ ...profile, age: Number(e.target.value) })}
+                  className="w-full bg-secondary/60 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 tabular-nums"
+                />
+                <span className="text-[11px] text-muted-foreground shrink-0">yrs</span>
               </div>
-            ))}
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Weight</label>
+              <div className="flex items-baseline gap-1 mt-1">
+                <input
+                  type="number"
+                  value={profile.weightLbs}
+                  onChange={(e) => setProfile({ ...profile, weightLbs: Number(e.target.value) })}
+                  className="w-full bg-secondary/60 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 tabular-nums"
+                />
+                <span className="text-[11px] text-muted-foreground shrink-0">lbs</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="text-[11px] text-muted-foreground">Height</label>
+            <div className="flex items-baseline gap-2 mt-1">
+              <input
+                type="number"
+                value={profile.heightFt}
+                onChange={(e) => setProfile({ ...profile, heightFt: Number(e.target.value) })}
+                className="w-20 bg-secondary/60 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 tabular-nums"
+              />
+              <span className="text-[11px] text-muted-foreground shrink-0">ft</span>
+              <input
+                type="number"
+                value={profile.heightIn}
+                onChange={(e) => setProfile({ ...profile, heightIn: Number(e.target.value) })}
+                className="w-20 bg-secondary/60 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 tabular-nums"
+              />
+              <span className="text-[11px] text-muted-foreground shrink-0">in</span>
+            </div>
           </div>
         </div>
 
