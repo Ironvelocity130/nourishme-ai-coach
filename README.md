@@ -1,3 +1,1 @@
-# Welcome to your Lovable project
-
-TODO: Document your project here
+Nourish Coach App to Calorie Count and provide Real Time Guidance
